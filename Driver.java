@@ -41,9 +41,37 @@ public class Driver {
 
     }
 
-    private static void HelperRecord(Scanner userin) {
+    private static void HelperRecord(Scanner userin) throws IOException {
+        File currentdirectory = new File("VolunteerRecords");
+        File[] VolunteerFiles = currentdirectory.listFiles();
+        int numberofVolunteer = VolunteerFiles.length;
+    
+        System.out.println("系统记录了 "  + numberofVolunteer+ "个志愿者");
 
+        for(int i = 0;i<numberofVolunteer;i++)
+        {
+            String volunteer_name = VolunteerFiles[i].getName().split("_")[0];
+
+            List<List<String>> volunteer_records = ReadCsv("VolunteerRecords/"+VolunteerFiles[i].getName());
+
+
+            System.out.println(  volunteer_name +"的最近一次行程记录于"+GetLastDateOfRecords(volunteer_records));
+
+
+
+        }
     }
+
+    private static String GetLastDateOfRecords(List<List<String>> volunteer_records)
+    {
+        int numberofRecords = volunteer_records.size();
+
+        return volunteer_records.get(numberofRecords-1).get(0);
+    }
+
+
+
+
 
     private static void ConsolePrint() {
         System.out.println("为珍珍订做的行车管理系统 V2.0");
@@ -76,6 +104,9 @@ public class Driver {
             writer.flush();
             writer.close();
 
+
+            CreateDataCSVToFriday(LocalDate.now());
+                       
             FileWriter writer2 = new FileWriter("Dates.csv");
             str = "StartDate,EndDate" + System.lineSeparator();
             writer2.append(str);
@@ -102,7 +133,7 @@ public class Driver {
                 continue;
             }
 
-            System.out.println("请输入" + info[0] + "的大致上课时间信息，格式：星期几,上课时间,下课时间,比如：1,8:00,12:00-3,8:00:13:00, Z-退出");
+            System.out.println("请输入" + info[0] + "的大致上课时间信息，格式：星期几,上课时间,下课时间,上课地点，下课地点,司机，比如：1,8:00,12:00,GS,Res,Freddy-3,8:00:13:00,Kenny Z-退出");
             read = userin.nextLine();
             if (Helper.IsEqualCaseInsensitive(read, "z")) {
                 break;
@@ -122,6 +153,8 @@ public class Driver {
             WriteToCsv("Volunteer.csv", info);
             WriteToCsv("Volunteer.csv", times);
             WriteToCsv("VolunteerRecords/" + info[0] + "_record.csv", null);
+            WriteToCsv( "VolunteerRecords/" + info[0] + "_record.csv", new String[]{"Date","StartTime","EndTime","School","Res","Driver"});
+            
 
         }
     }
@@ -150,7 +183,7 @@ public class Driver {
             String line;
             while ((line = br.readLine()) != null) 
             {
-                String[] values = line.split("");
+                String[] values = line.split(",");
                 records.add(Arrays.asList(values));
             }
 
@@ -163,7 +196,7 @@ public class Driver {
         for(int i = 0;i<times.length;i++)
         {
             String[] timeinfo = times[i].split(",");
-            if(timeinfo.length != 3)
+            if(timeinfo.length != 6)
             {
                 return false;
             }
@@ -214,9 +247,12 @@ public class Driver {
         return res;
     }
 
-    private static void CreateDataCSVToFriday(LocalDate date)
+    private static LocalDate[] CreateDataCSVToFriday(LocalDate date) throws IOException
     {
         int DaysUntilNextWeekday= 0;
+        LocalDate[] startfinish = new LocalDate[2];
+
+
         LocalDate Start;
         LocalDate End;
         if(date.getDayOfWeek().equals(DayOfWeek.SATURDAY) || date.getDayOfWeek().equals(DayOfWeek.SUNDAY))
@@ -224,11 +260,21 @@ public class Driver {
             DaysUntilNextWeekday = 7- date.getDayOfWeek().getValue() +1; 
             Start = date.plusDays(DaysUntilNextWeekday);
             End = Start.plusDays(4);
-
-        
+        }
+        else
+        {
+            Start = date;
+            End = date.plusDays(5-date.getDayOfWeek().getValue());
         }
 
+        String filename = Start.getDayOfMonth()+"-"+Start.getMonthValue()+" to " + End.getDayOfMonth()+"-"+ End.getMonthValue();
 
+        WriteToCsv("Simon's Town " + filename+".csv",null);
+        WriteToCsv("CI " + filename+".csv", null);
+        startfinish[0] = Start;
+        startfinish[1] =End;
+
+        return startfinish;
 
     }
 
