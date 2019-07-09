@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Dictionary;
 import java.util.List;
 import java.util.Scanner;
 
@@ -69,7 +70,7 @@ public class Driver {
         }
     }
 
-    private static void HelpCompleteUntilToday(Scanner userin,boolean HasRecords,List<List<String>> volunteer_records,String volunteer_name)
+    private static void HelpCompleteUntilToday(Scanner userin,boolean HasRecords,List<List<String>> volunteer_records,String volunteer_name) throws IOException
     {
         String Userdate = null;
         LocalDateTime initialDate = null;
@@ -110,12 +111,22 @@ public class Driver {
                 continue;
             }
 
+            GetVolunteerInfoOnThiDay(volunteer_name,currentDateTime.getDayOfWeek().getValue());
+
+
+
+
             System.out.println(GetDateStrFromLocalDateTime(currentDateTime)+ " 星期"+ currentDateTime.getDayOfWeek()+ " 智能建议:");
             //Implement From Here
 
         }
     }
 
+    private static Dictionary<String, String> GetVolunteerInfoOnThiDay(String name, int DayOfWeek)
+    {
+        //Implement From here
+        return null;
+    }
 
     private static String GetDateStrFromLocalDateTime(LocalDateTime date)
     {
@@ -131,8 +142,6 @@ public class Driver {
         return false;
 
     }  
-
-
 
     private static LocalDateTime GetInitialDate(String Userdate)
     {
@@ -168,8 +177,6 @@ public class Driver {
         return userDate;
     }
 
-
-
     private static boolean IfVolunteerHasRecords(List<List<String>> volunteer_records, String volunteer_name)
     {
         if(Helper.IsEqualCaseInsensitive(GetLastDateOfRecords(volunteer_records),"Date"))
@@ -192,10 +199,6 @@ public class Driver {
 
         return volunteer_records.get(numberofRecords-1).get(0);
     }
-
-
-
-
 
     private static void ConsolePrint() {
         System.out.println("为珍珍订做的行车管理系统 V2.0");
