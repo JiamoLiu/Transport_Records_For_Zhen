@@ -111,21 +111,54 @@ public class Driver {
                 continue;
             }
 
-            GetVolunteerInfoOnThiDay(volunteer_name,currentDateTime.getDayOfWeek().getValue());
+            String InfoOntHiday = GetVolunteerInfoOnThiDay(volunteer_name,currentDateTime.getDayOfWeek().getValue());
 
 
 
 
-            System.out.println(GetDateStrFromLocalDateTime(currentDateTime)+ " 星期"+ currentDateTime.getDayOfWeek()+ " 智能建议:");
+            System.out.println(GetDateStrFromLocalDateTime(currentDateTime)+ " 星期"+ currentDateTime.getDayOfWeek()+ " 智能建议: " + InfoOntHiday + " A-使用智能建议，B-手动添加,C-跳过今天,Z-退出/返回");
+
+            String option = userin.nextLine();
+            if(Helper.IsEqualCaseInsensitive(option, "A"))
+            {
+                FillInForHelper();
+            }
+
+
+
             //Implement From Here
+                        
 
         }
     }
 
-    private static Dictionary<String, String> GetVolunteerInfoOnThiDay(String name, int DayOfWeek)
+    private static String GetVolunteerInfoOnThiDay(String name, int DayOfWeek) throws IOException
     {
-        //Implement From here
-        return null;
+        String volunteer_file =name+".csv";
+        List<List<String>> res =  ReadCsv("VolunteerInfos/"+volunteer_file);
+        boolean HasRecordsOnThiDay = false;
+
+
+        for (List<String> row : res) {
+            if(row.get(0).equals("Name"))
+            {
+                continue;
+            }
+            if (Integer.parseInt(row.get(1)) == DayOfWeek)
+            {
+                HasRecordsOnThiDay = true;
+                return name + "在星期" + DayOfWeek +" " +row.get(2)+"点上课， " + row.get(3)+"点下课， "+"教课地点是"+row.get(4)+"， 下课地点是" + row.get(5)+"，司机是"+row.get(6);
+            } 
+        }
+
+        if (!HasRecordsOnThiDay)
+        {
+            return "今天没有智能建议";
+        }
+
+
+
+        return "未知错误";
     }
 
     private static String GetDateStrFromLocalDateTime(LocalDateTime date)
@@ -208,32 +241,25 @@ public class Driver {
 
     private static void InitialiseStorageFiles() throws IOException {
         File currentdirectory = new File(".");
-
         File[] files = currentdirectory.listFiles();
         int numberofinits = 0;
         boolean init = false;
         for (int i = 0; i < files.length; i++) {
-            if (files[i].getName().equals("Volunteer.csv") || files[i].getName().equals("Dates.csv")) {
+            if ( files[i].getName().equals("Dates.csv")) {
                 numberofinits++;
             }
 
         }
 
-        if (numberofinits == 2) {
+        if (numberofinits ==1) {
             init = true;
         }
 
         if (!init) {
-            FileWriter writer = new FileWriter("Volunteer.csv");
-            String str = "Name,DayOfWeek,StartTime,EndTime,School,AfterSchoolAddress,Driver";
-            str+= System.lineSeparator();
-            writer.append(str);
-            writer.flush();
-            writer.close();
             LocalDate[] startToEnd = CreateDataCSVToFriday(LocalDate.now());
                        
             FileWriter writer2 = new FileWriter("Dates.csv");
-            str = "StartDate,EndDate" + System.lineSeparator();
+            String str = "StartDate,EndDate" + System.lineSeparator();
             str+=startToEnd[0].toString() +"," + startToEnd[1].toString();
             writer2.append(str);
             writer2.flush();
@@ -279,8 +305,11 @@ public class Driver {
             {
                 System.out.println("Invalid Volunteer Time Info!");
                 continue;
-            }                
-            WriteRowToCsv("Volunteer.csv", times);
+            }
+            
+            
+            WriteToCsv("VolunteerInfos/"+info[0]+ ".csv", new String[]{"Name,DayOfWeek,StartTime,EndTime,School,AfterSchoolAddress,Driver"});
+            WriteToCsv("VolunteerInfos/"+info[0]+ ".csv", times);
             
            
             WriteToCsv("VolunteerRecords/" + info[0] + "_record.csv", null);
@@ -291,17 +320,14 @@ public class Driver {
     }
 
     private static boolean VolunteerExists(String name) throws IOException {
-        List<List<String>> res = ReadCsv("Volunteer.csv");
+        File currentdirectory = new File("VolunteerInfos/");
+        File[] files = currentdirectory.listFiles();
 
-        for(int i =0;i<res.size();i++)
-        {
-            for(int j = 0;j< res.get(i).size();j++)
+        for (File file : files) {
+            if(file.getName().equals(name+".csv"))
             {
-                if(res.get(i).get(j).equals(name))
-                {
-                    return true;
-                }
-            }
+                return true;
+            }    
         }
         return false;
     }
@@ -339,7 +365,6 @@ public class Driver {
 
     private static void WriteRowToCsv(String filename, String[] info) throws IOException {
         String builder = "";
-
         for(int i = 0; i<info.length;i++)
         {
             builder+=info[i];
