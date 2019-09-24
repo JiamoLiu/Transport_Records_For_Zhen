@@ -1,11 +1,14 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
-
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -16,459 +19,216 @@ import java.util.List;
 import java.util.Scanner;
 
 
+//Date,Time,From,To,People,Purpose,Driver
 
-
-
+//CRUD Volunteer and Info
+//Last Date Recorded For Each Volunteer
+//Individual Volunteer Records, total Records
 
 public class Driver {
+    private static String VolunteerNameFile = "Volunteers";
+    private static String LastestVolunteerDateFile = "LatestDate";
+    private static String PersonalInfoFile = "PersonalInfo";
+    private static Scanner scan = new Scanner(System.in);
+
     public static void main(String[] args) throws IOException {
-        String choice = null;
-
-        InitialiseStorageFiles();
-
-        while (true) {
-            Driver.ConsolePrint();
-            Scanner userin = new Scanner(System.in);
-            choice = userin.nextLine();
-            if (Helper.IsEqualCaseInsensitive(choice, "z")) {
-                break;
-            }
-
-            if (Helper.IsEqualCaseInsensitive(choice, "A")) {
-                Driver.AddVolunteer(userin);
-                continue;
-            }
-
-            if (Helper.IsEqualCaseInsensitive(choice, "b")) {
-                Driver.HelperRecord(userin);
-                continue;
-            }
-
-            userin.close();
-        }
-
-        
-
-    }
-
-    private static void HelperRecord(Scanner userin) throws IOException {
-        File currentdirectory = new File("VolunteerRecords");
-        File[] VolunteerFiles = currentdirectory.listFiles();
-        int numberofVolunteer = VolunteerFiles.length;
-    
-        System.out.println("系统记录了 "  + numberofVolunteer+ "个志愿者");
-
-        for(int i = 0;i<numberofVolunteer;i++)
-        {
-            String volunteer_name = VolunteerFiles[i].getName().split("_")[0];
-
-            List<List<String>> volunteer_records = ReadCsv("VolunteerRecords/"+VolunteerFiles[i].getName());
-            boolean HasRecords = IfVolunteerHasRecords(volunteer_records,volunteer_name);
-            HelpCompleteUntilToday(userin,HasRecords,volunteer_records,volunteer_name);
-
-
-        }
-    }
-
-    private static void HelpCompleteUntilToday(Scanner userin,boolean HasRecords,List<List<String>> volunteer_records,String volunteer_name) throws IOException
-    {
-        String Userdate = null;
-        LocalDateTime initialDate = null;
-
+        System.out.println("欢迎使用行车记录仪2.0");
         while(true)
         {
-            if(!HasRecords)
-            {
-                System.out.println(volunteer_name+"没有任何记录，请告诉我起始日期，比如2019-07-08, Z-退出");
-                Userdate = userin.nextLine();
-                if(Helper.IsEqualCaseInsensitive(Userdate, "z"))
-                {
-                    break;  
-                }
-                initialDate = GetInitialDate(Userdate);
-                if(initialDate==null)
-                {
-                    System.out.println("输入日期不符合规格!(有可能是周末)");
-                    continue;
-                }
-                break;
+            System.out.println("A-智能填写，B-手动填写，C-添加志愿者，D-删除志愿者，E-查看志愿者, Z-退出");
+            InitialiseSystem();
+            String Input = GetUserInput();
+            if (Input.equalsIgnoreCase("A")) {
+    
+            }
+    
+            if (Input.equalsIgnoreCase("C")) {
+                AddVolunteer();
             }
 
+            if(Input.equalsIgnoreCase("D"))
+            {
+                DeleteVolunteer();
+            }
+    
+            if(Input.equalsIgnoreCase("Z"))
+            {
+                break;
+            }
+        }
+
+
+    }
+
+    private static void DeleteVolunteer() throws IOException {
+        System.out.println("志愿者英文名字是什么？");
+        String VolunteerName = GetUserInput();
+        DeleteDirRecursiveIfExist(VolunteerName);
+        RemoveRowContainsKeyFromFile(GetTxtFileName(VolunteerNameFile),VolunteerName);
+    }
+
+    private static void RemoveRowContainsKeyFromFile(String fileName, String key) throws IOException {
+        ArrayList<String> originalFile = ReadLinesFromFile(fileName);
+        String Builder = "";
+        for(int i = 0;i<originalFile.size();i++ )
+        {
+            String row = originalFile.get(i);
+            if (row.contains(key))
+            {
+                continue;
+            }
+            if (i != originalFile.size() -1)
+            {
+                Builder += row+System.lineSeparator();
+            }
             else
             {
-                String date = GetLastDateOfRecords(volunteer_records);
-                initialDate = GetInitialDate(date).plusDays(1);
-                break;    
+                Builder+= row;
             }
         }
-        
-        LocalDateTime currentDateTime = initialDate;
-        while(currentDateTime.isBefore(LocalDateTime.now()))
-        {
-            if(IsWeekend(currentDateTime))
-            {
-                currentDateTime.plusDays(1);
-                continue;
-            }
-
-            String InfoOntHiday = GetVolunteerInfoOnThiDay(volunteer_name,currentDateTime.getDayOfWeek().getValue());
-
-
-
-
-            System.out.println(GetDateStrFromLocalDateTime(currentDateTime)+ " 星期"+ currentDateTime.getDayOfWeek()+ " 智能建议: " + InfoOntHiday + " A-使用智能建议，B-手动添加,C-跳过今天,Z-退出/返回");
-
-            String option = userin.nextLine();
-            if(Helper.IsEqualCaseInsensitive(option, "A"))
-            {
-                FillInForHelper();
-            }
-
-
-
-            //Implement From Here
-                        
-
-        }
+        WriteToFile(fileName, Builder);
     }
 
-    private static String GetVolunteerInfoOnThiDay(String name, int DayOfWeek) throws IOException
+    private static void DeleteDirRecursiveIfExist(String Path) {
+        File folder = new File(Path);
+        File[] allContents = folder.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                DeleteDirRecursiveIfExist(file.getPath());
+            }
+        }
+
+        if (!folder.delete())
+        {
+            System.out.println("无法删除文件夹");
+        }
+
+	}
+
+	private static ArrayList<String> ReadLinesFromFile(String FileName) throws IOException
     {
-        String volunteer_file =name+".csv";
-        List<List<String>> res =  ReadCsv("VolunteerInfos/"+volunteer_file);
-        boolean HasRecordsOnThiDay = false;
+        ArrayList<String> res = new ArrayList<String>();
 
-
-        for (List<String> row : res) {
-            if(row.get(0).equals("Name"))
-            {
-                continue;
-            }
-            if (Integer.parseInt(row.get(1)) == DayOfWeek)
-            {
-                HasRecordsOnThiDay = true;
-                return name + "在星期" + DayOfWeek +" " +row.get(2)+"点上课， " + row.get(3)+"点下课， "+"教课地点是"+row.get(4)+"， 下课地点是" + row.get(5)+"，司机是"+row.get(6);
-            } 
-        }
-
-        if (!HasRecordsOnThiDay)
-        {
-            return "今天没有智能建议";
-        }
-
-
-
-        return "未知错误";
-    }
-
-    private static String GetDateStrFromLocalDateTime(LocalDateTime date)
-    {
-        return date.getYear() + "-" + date.getMonth() +"-" + date.getDayOfMonth();
-    }
-
-    private static boolean IsWeekend(LocalDateTime date)
-    {
-        if(date.getDayOfWeek().getValue() == 6 || date.getDayOfWeek().getValue() == 7)
-        {
-            return true;
-        }
-        return false;
-
-    }  
-
-    private static LocalDateTime GetInitialDate(String Userdate)
-    {
-        String[] date = Userdate.split("-");
-        if(date.length !=3 )
-        {
-            return null;
-        }
-
-        LocalDateTime userDate =GetDateFromDateStr(Userdate);
-
-        if(userDate.isAfter(LocalDateTime.now()))
-        {
-            return null;
-        }
-
-        if(IsWeekend(userDate))
-        {
-            return null;
-        }
-
-        return userDate;
-    }
-
-    private static LocalDateTime GetDateFromDateStr(String Userdate)
-    {
-        String[] date = Userdate.split("-");
-        int year = Integer.parseInt(date[0]);
-        int month = Integer.parseInt(date[1]);
-        int day = Integer.parseInt(date[2]);
-        LocalDateTime userDate = LocalDateTime.of(year,month,day,0,0);
-
-        return userDate;
-    }
-
-    private static boolean IfVolunteerHasRecords(List<List<String>> volunteer_records, String volunteer_name)
-    {
-        if(Helper.IsEqualCaseInsensitive(GetLastDateOfRecords(volunteer_records),"Date"))
-        {
-            System.out.println(  volunteer_name +"还没有行程记记录");
-            return false;
-        }
-        else
-        {
-            System.out.println(  volunteer_name +"的最近一次行程记录于"+GetLastDateOfRecords(volunteer_records));
-            return true;
-        }
-
-        
-    }
-
-    private static String GetLastDateOfRecords(List<List<String>> volunteer_records)
-    {
-        int numberofRecords = volunteer_records.size();
-
-        return volunteer_records.get(numberofRecords-1).get(0);
-    }
-
-    private static void ConsolePrint() {
-        System.out.println("为珍珍订做的行车管理系统 V2.0");
-        System.out.println("现在是" + LocalDateTime.now());
-        System.out.println("请选择一个选项，A-添加志愿者， B-小助手辅助记录行程, C-手动记录 Z-退出");
-    }
-
-    private static void InitialiseStorageFiles() throws IOException {
-        File currentdirectory = new File(".");
-        File[] files = currentdirectory.listFiles();
-        int numberofinits = 0;
-        boolean init = false;
-        for (int i = 0; i < files.length; i++) {
-            if ( files[i].getName().equals("Dates.csv")) {
-                numberofinits++;
-            }
-
-        }
-
-        if (numberofinits ==1) {
-            init = true;
-        }
-
-        if (!init) {
-            LocalDate[] startToEnd = CreateDataCSVToFriday(LocalDate.now());
-                       
-            FileWriter writer2 = new FileWriter("Dates.csv");
-            String str = "StartDate,EndDate" + System.lineSeparator();
-            str+=startToEnd[0].toString() +"," + startToEnd[1].toString();
-            writer2.append(str);
-            writer2.flush();
-            writer2.close();
-        }
-    }
-
-    private static void AddVolunteer(Scanner userin) throws IOException {
-        while (true) {
-            System.out.println("请输入志愿者信息，格式：名字,比如：Jiamo, Z-退出");
-            String read = userin.nextLine();
-            if (Helper.IsEqualCaseInsensitive(read, "z")) {
-                break;
-            }
-            String[] info = ProcessVolunteerInput(read);
-            if (info.equals(null) || info.length != 1) {
-                System.out.println("Invalid Volunteer Info!");
-                continue;
-            }
-
-            if (VolunteerExists(info[0])) {
-                System.out.println("Volunteer Already Exists!");
-                continue;
-            }
-
-
-
-
-            System.out.println("请输入" + info[0] + "的大致上课时间信息，格式：星期几,上课时间,下课时间,上课地点，下课地点,司机，比如：1,8:00,12:00,GS,Res,Freddy-3,8:00:13:00,Kenny Z-退出");
-            read =  userin.nextLine();
-            if (Helper.IsEqualCaseInsensitive(read, "z")) {
-                break;
-            }
-    
-            String[] times = ProcessVolunteerInput(info[0],read);
-            if (times== null) 
-            {
-                System.out.println("Invalid Volunteer Time Info!");
-                continue;
-            }
-    
-            if (!IsTimesValid(times))
-            {
-                System.out.println("Invalid Volunteer Time Info!");
-                continue;
-            }
-            
-            
-            WriteToCsv("VolunteerInfos/"+info[0]+ ".csv", new String[]{"Name,DayOfWeek,StartTime,EndTime,School,AfterSchoolAddress,Driver"});
-            WriteToCsv("VolunteerInfos/"+info[0]+ ".csv", times);
-            
-           
-            WriteToCsv("VolunteerRecords/" + info[0] + "_record.csv", null);
-            WriteToCsv( "VolunteerRecords/" + info[0] + "_record.csv", new String[]{"Date","StartTime","EndTime","School","Res","Driver"});
-            
-
-        }
-    }
-
-    private static boolean VolunteerExists(String name) throws IOException {
-        File currentdirectory = new File("VolunteerInfos/");
-        File[] files = currentdirectory.listFiles();
-
-        for (File file : files) {
-            if(file.getName().equals(name+".csv"))
-            {
-                return true;
-            }    
-        }
-        return false;
-    }
-
-    private static List<List<String>> ReadCsv(String filename) throws IOException
-    {
-        List<List<String>> records = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(filename))) 
-        {
+        try (BufferedReader br = new BufferedReader(new FileReader(FileName))) {
             String line;
-            while ((line = br.readLine())!= null ) 
-            {
-                String[] values = line.split(",");
-                records.add(Arrays.asList(values));
+            while ((line = br.readLine()) != null) {
+               res.add(line);
             }
-
-            
+            br.close();
         }
-        return records;
-    }
-
-    private static boolean IsTimesValid(String[] times) {
-        for(int i = 0;i<times.length;i++)
-        {
-            String[] timeinfo = times[i].split(",");
-            if(timeinfo.length != 7)
-            {
-                return false;
-            }
-            
-
-        }
-        return true;
-    }
-
-    private static void WriteRowToCsv(String filename, String[] info) throws IOException {
-        String builder = "";
-        for(int i = 0; i<info.length;i++)
-        {
-            builder+=info[i];
-            if(i!= info.length-1)
-            {
-                builder += System.lineSeparator();
-            }
-        }
-
-        FileWriter writer = new FileWriter(filename,true);
-        writer.append(builder);
-        writer.flush();
-        writer.close();
-    }
-
-    private static void WriteToCsv(String filename, String[] info) throws IOException {
-        String builder = "";
-
-        if(info!=null)
-        {
-            for(int i = 0; i<info.length;i++)
-            {
-                builder+=info[i];
-                if(i!= info.length-1)
-                {
-                    builder += ",";
-                }
-            }
-            builder += System.lineSeparator();
-    
-            FileWriter writer = new FileWriter(filename,true);
-            writer.append(builder);
-            writer.flush();
-            writer.close();
-        }
-
-        else
-        {
-            FileWriter writer = new FileWriter(filename);
-            writer.flush();
-            writer.close();
-        }
-    }
-
-    private static String[] ProcessVolunteerInput(String name)
-    {
-        if(name == null || name.equals(""))
-        {
-            return null;
-        }
-        return name.split("-");
-    }
-
-    private static String[] ProcessVolunteerInput(String name,String timeStr)
-    {
-        if((timeStr == null) || timeStr.equals(""))
-        {
-            return null;
-        }
-
-        String[] times = timeStr.split("-");
-        String[] res = new String[times.length]; 
-
-        for(int i = 0;i<times.length;i++)
-        {
-            res[i] = name+ ","+times[i];
-        }
-
-
         return res;
     }
+    
+    private static void AddVolunteer() throws IOException {
+        System.out.println("志愿者英文名字是什么？");
+        String VolunteerName = GetUserInput();
+        CreateDirIfNotExistFor(VolunteerName);
+        AddVolunteerToSystem(VolunteerName);                
+	}
 
-    private static LocalDate[] CreateDataCSVToFriday(LocalDate date) throws IOException
+    private static void AddVolunteerToSystem(String VolunteerName) throws IOException {
+        if (VolunteerAlreadyInSystem(VolunteerName))
+        {
+            System.out.println("不能添加志愿者，他已经在系统内");
+            return;
+        }
+        AppendToTxtFile(GetTxtFileName(VolunteerNameFile),VolunteerName);
+        CreateFileIfNotExist(GetPersonalTxtFilePath(VolunteerName, LastestVolunteerDateFile), "LastDate");
+        CreateFileIfNotExist(GetPersonalTxtFilePath(VolunteerName, PersonalInfoFile), "DayOfWeek,Time,From,To,Purpose,Driver");
+    }
+
+    private static boolean VolunteerAlreadyInSystem(String VolunteerName) throws IOException
     {
-        int DaysUntilNextWeekday= 0;
-        LocalDate[] startfinish = new LocalDate[2];
-
-
-        LocalDate Start;
-        LocalDate End;
-        if(date.getDayOfWeek().equals(DayOfWeek.SATURDAY) || date.getDayOfWeek().equals(DayOfWeek.SUNDAY))
+        ArrayList<String> people = ReadLinesFromFile(GetTxtFileName(VolunteerNameFile));
+        for(int i = 0;i<people.size();i++)
         {
-            DaysUntilNextWeekday = 7- date.getDayOfWeek().getValue() +1; 
-            Start = date.plusDays(DaysUntilNextWeekday);
-            End = Start.plusDays(4);
+            if (people.get(i).equalsIgnoreCase(VolunteerName))
+            {
+                return true;
+            }
         }
-        else
+        return false;
+    }
+
+    private static String GetPersonalTxtFilePath(String VolunteerName, String FileName)
+    {
+        return VolunteerName+"/"+FileName+".txt";
+    }
+
+	private static void AppendToTxtFile(String fileName, String row) throws IOException {
+        FileWriter fw = new FileWriter(fileName,true);
+        fw.write(row+System.lineSeparator());
+        fw.close();
+    }
+
+    private static void CreateDirIfNotExistFor(String Path) {
+        File folder = new File(Path);
+        if(!folder.exists())
         {
-            Start = date;
-            End = date.plusDays(5-date.getDayOfWeek().getValue());
+            if(!folder.mkdir())
+            {
+                System.out.println("Can Not Create Directory");
+            }
+        }
+    }
+
+    private static String GetUserInput() {
+        String input = scan.nextLine();
+        return input;
+	}
+
+	private static void InitialiseSystem() throws IOException {
+        CreateFileIfNotExist(GetTxtFileName(VolunteerNameFile), "Name");
+    }
+
+    private static String GetTxtFileName(String filename)
+    {
+        return filename + ".txt";
+    } 
+
+    private static void CreateFileIfNotExist(String fileName, String InitialData) throws IOException {
+        if(CurrentDirectoryHasFile(fileName))
+        {
+            return;
         }
 
-        String filename = Start.getDayOfMonth()+"-"+Start.getMonthValue()+" to " + End.getDayOfMonth()+"-"+ End.getMonthValue();
+        WriteToFile(fileName, InitialData);
+    }
 
-        WriteToCsv("Simon's Town " + filename+".csv",null);
-        WriteToCsv("CI " + filename+".csv", null);
-        startfinish[0] = Start;
-        startfinish[1] =End;
-
-        return startfinish;
-
+    private static void WriteToFile(String fileName, String InitialData) throws IOException {
+        File file = new File(fileName);
+        if(InitialData != null)
+        {
+            BufferedWriter output = new BufferedWriter(new FileWriter(file));
+            output.write(InitialData+System.lineSeparator());
+            output.close();
+        }
     }
 
 
+    private static boolean CurrentDirectoryHasFile(String fileName) {
+        String[] filenames = GetFileNamesInCurrentDirectory();
+        for(int i = 0;i<filenames.length;i++)
+        {
+            if(filenames[i].equals(fileName))
+            {return true;}
+        }
+        return false;
+    }
 
+    private static String[] GetFileNamesInCurrentDirectory() {
+        File[] files = GetFilesFromCurrentDirectory();
+        String[] fileNames = new String[files.length];
+        for (int i =0;i<files.length;i++)
+        {
+            fileNames[i] = files[i].getName();
+        }
+        return fileNames;
+    }
 
+    private static File[] GetFilesFromCurrentDirectory() {
+        File current = new File(".");
+        File[] files = current.listFiles();
+        return files;
+    }
 }
