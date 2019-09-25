@@ -12,11 +12,13 @@ import java.nio.file.Path;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Dictionary;
 import java.util.List;
 import java.util.Scanner;
+
 
 
 //Date,Time,From,To,People,Purpose,Driver
@@ -29,9 +31,12 @@ public class Driver {
     private static String VolunteerNameFile = "Volunteers";
     private static String LastestVolunteerDateFile = "LatestDate";
     private static String PersonalInfoFile = "PersonalInfo";
+    private static String PersonalRecordFile = "PersonalRecord";
+
+    private static String PersonalRecordHeader = "Date,Time,From,To,People,Purpose,Driver";
     private static Scanner scan = new Scanner(System.in);
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         System.out.println("欢迎使用行车记录仪2.0");
         while(true)
         {
@@ -39,7 +44,12 @@ public class Driver {
             InitialiseSystem();
             String Input = GetUserInput();
             if (Input.equalsIgnoreCase("A")) {
-    
+
+            }
+
+            if(Input.equalsIgnoreCase("B"))
+            {
+                ManualFillIn();
             }
     
             if (Input.equalsIgnoreCase("C")) {
@@ -49,6 +59,11 @@ public class Driver {
             if(Input.equalsIgnoreCase("D"))
             {
                 DeleteVolunteer();
+            }
+
+            if(Input.equalsIgnoreCase("E"))
+            {
+                ListVolunteers();
             }
     
             if(Input.equalsIgnoreCase("Z"))
@@ -60,30 +75,143 @@ public class Driver {
 
     }
 
+    private static void ManualFillIn() throws Exception {
+        System.out.println("志愿者的名字是什么？");
+        String name = GetUserInput();
+        if(!VolunteerExists(name))
+        {
+            System.out.println("没有这个志愿者");
+            return;
+        }
+        System.out.println("请输入他的行程，格式为：Date(2019-01-01),Time(15:30),From,To,People(Saparate with &),Purpose,Driver");
+        String Input = GetUserInput();
+        String[] data = Input.split(",");
+        LocalDate date = GetDateFromUserString(data[0]);
+        if(IsWeekend(date))
+        {
+            System.out.println("这一天是周末！");
+            return;
+        }
+        AppendToPersonalRecord(name,Input);
+        AppendToAggregateRecords(name, Input);
+        UpdateLastestDate(name,date);
+    }
+
+    //Date,Time,From,To,People,Purpose,Driver
+
+    private static void UpdateLastestDate(String VolunteerName, LocalDate date) throws IOException {
+        ArrayList<String> file = ReadLinesFromFile(GetPersonalCSVFilePath(VolunteerName, LastestVolunteerDateFile));
+
+        if(file.size() == 1)
+        {
+            AppendToCSVFile(GetPersonalCSVFilePath(VolunteerName, LastestVolunteerDateFile), LocalDateToString(date));
+        }
+        else
+        {
+            String LastDateStr = file.get(file.size()-1);
+            LocalDate LastDate = DateStrToLocalDate(LastDateStr.split("-"));
+            if (date.isAfter(LastDate))
+            {
+                RemoveRowContainsKeyFromFile(GetPersonalCSVFilePath(VolunteerName, LastestVolunteerDateFile), LastDateStr);
+                AppendToCSVFile(GetPersonalCSVFilePath(VolunteerName, LastestVolunteerDateFile), LocalDateToString(date));
+            }
+        }
+    }
+
+    private static void AppendToAggregateRecords(String name, String UserInput) throws Exception {
+
+        String FileName = GetFileNameForAggregateRecord(UserInput);
+        CreateFileIfNotExist(FileName, PersonalRecordHeader);
+        AppendToCSVFile(FileName, UserInput);
+    }
+
+    private static String GetFileNameForAggregateRecord(String userInput) {
+        
+        try
+        {
+            String[] data = userInput.split(",");
+            LocalDate date = GetDateFromUserString(data[0]);
+            int DaysFromMonday = date.getDayOfWeek().getValue()- 1;
+            int DaysTillFriday = 5 - date.getDayOfWeek().getValue();
+            LocalDate start = date.minusDays(DaysFromMonday);
+            LocalDate end = date.plusDays(DaysTillFriday);
+            return GetCSVFileName(LocalDateToString(start) + " "+ LocalDateToString(end));
+            
+        }
+        catch(Exception e)
+        {
+            System.out.println("不能转换成日期或者日期是周末");
+            return null;        
+        }
+    }
+
+    private static LocalDate GetDateFromUserString(String dateString) throws Exception {
+        String[] StrDate = dateString.split("-");
+        LocalDate date = DateStrToLocalDate(StrDate);
+        return date;
+    }
+
+    private static LocalDate DateStrToLocalDate(String[] StrDate) {
+        LocalDate date = LocalDate.of(Integer.parseInt(StrDate[0]), Integer.parseInt(StrDate[1]) , Integer.parseInt(StrDate[2]));
+        return date;
+    }
+
+    private static String LocalDateToString(LocalDate date)
+    {
+        return date.getYear()+"-"+date.getMonthValue()+"-"+date.getDayOfMonth();
+    }
+
+    private static boolean IsWeekend(LocalDate date) {
+        if(date.getDayOfWeek().getValue() == 6 || date.getDayOfWeek().getValue() == 7)
+        {return true;}
+        return false;
+    }
+
+    private static void AppendToPersonalRecord(String name, String input) throws IOException {
+        String path = GetPersonalCSVFilePath(name, PersonalRecordFile);
+        CreateFileIfNotExist(path, PersonalRecordHeader);
+        AppendToCSVFile(path, input);
+    }
+
+
+    private static boolean VolunteerExists(String VolunteerName) throws IOException {
+        ArrayList<String> names = ReadLinesFromFile(GetCSVFileName(VolunteerNameFile));
+        return names.contains(VolunteerName);
+    }
+
+    private static void ListVolunteers() throws IOException {
+        ArrayList<String> names = ReadLinesFromFile(GetCSVFileName(VolunteerNameFile));
+        if(names.size()==1)
+        {
+            System.out.println("没有志愿者");
+            return;
+        }
+        names.remove(0);
+        System.out.print("志愿者有： "+String.join(",", names)+System.lineSeparator()); 
+    }
+
     private static void DeleteVolunteer() throws IOException {
         System.out.println("志愿者英文名字是什么？");
         String VolunteerName = GetUserInput();
         DeleteDirRecursiveIfExist(VolunteerName);
-        RemoveRowContainsKeyFromFile(GetTxtFileName(VolunteerNameFile),VolunteerName);
+        RemoveRowContainsKeyFromFile(GetCSVFileName(VolunteerNameFile),VolunteerName);
     }
 
     private static void RemoveRowContainsKeyFromFile(String fileName, String key) throws IOException {
         ArrayList<String> originalFile = ReadLinesFromFile(fileName);
         String Builder = "";
+        originalFile.remove(key);
+
         for(int i = 0;i<originalFile.size();i++ )
         {
             String row = originalFile.get(i);
-            if (row.contains(key))
-            {
-                continue;
-            }
-            if (i != originalFile.size() -1)
+            if((i != originalFile.size() -1))
             {
                 Builder += row+System.lineSeparator();
             }
             else
             {
-                Builder+= row;
+                Builder += row;
             }
         }
         WriteToFile(fileName, Builder);
@@ -112,7 +240,10 @@ public class Driver {
         try (BufferedReader br = new BufferedReader(new FileReader(FileName))) {
             String line;
             while ((line = br.readLine()) != null) {
-               res.add(line);
+                if (!line.equals(""))
+                {
+                    res.add(line);
+                }   
             }
             br.close();
         }
@@ -132,14 +263,14 @@ public class Driver {
             System.out.println("不能添加志愿者，他已经在系统内");
             return;
         }
-        AppendToTxtFile(GetTxtFileName(VolunteerNameFile),VolunteerName);
-        CreateFileIfNotExist(GetPersonalTxtFilePath(VolunteerName, LastestVolunteerDateFile), "LastDate");
-        CreateFileIfNotExist(GetPersonalTxtFilePath(VolunteerName, PersonalInfoFile), "DayOfWeek,Time,From,To,Purpose,Driver");
+        AppendToCSVFile(GetCSVFileName(VolunteerNameFile),VolunteerName);
+        CreateFileIfNotExist(GetPersonalCSVFilePath(VolunteerName, LastestVolunteerDateFile), "LastDate");
+        CreateFileIfNotExist(GetPersonalCSVFilePath(VolunteerName, PersonalInfoFile), "DayOfWeek,Time,From,To,Purpose,Driver");
     }
 
     private static boolean VolunteerAlreadyInSystem(String VolunteerName) throws IOException
     {
-        ArrayList<String> people = ReadLinesFromFile(GetTxtFileName(VolunteerNameFile));
+        ArrayList<String> people = ReadLinesFromFile(GetCSVFileName(VolunteerNameFile));
         for(int i = 0;i<people.size();i++)
         {
             if (people.get(i).equalsIgnoreCase(VolunteerName))
@@ -150,12 +281,12 @@ public class Driver {
         return false;
     }
 
-    private static String GetPersonalTxtFilePath(String VolunteerName, String FileName)
+    private static String GetPersonalCSVFilePath(String VolunteerName, String FileName)
     {
-        return VolunteerName+"/"+FileName+".txt";
+        return VolunteerName+"/"+FileName+".csv";
     }
 
-	private static void AppendToTxtFile(String fileName, String row) throws IOException {
+	private static void AppendToCSVFile(String fileName, String row) throws IOException {
         FileWriter fw = new FileWriter(fileName,true);
         fw.write(row+System.lineSeparator());
         fw.close();
@@ -178,12 +309,12 @@ public class Driver {
 	}
 
 	private static void InitialiseSystem() throws IOException {
-        CreateFileIfNotExist(GetTxtFileName(VolunteerNameFile), "Name");
+        CreateFileIfNotExist(GetCSVFileName(VolunteerNameFile), "Name");
     }
 
-    private static String GetTxtFileName(String filename)
+    private static String GetCSVFileName(String filename)
     {
-        return filename + ".txt";
+        return filename + ".csv";
     } 
 
     private static void CreateFileIfNotExist(String fileName, String InitialData) throws IOException {
